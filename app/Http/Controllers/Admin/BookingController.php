@@ -9,14 +9,40 @@ use App\Models\Booking;
 
 class BookingController extends Controller
 {
-    // GET all bookings
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json([
-            'data' => Booking::latest()->get()
-        ]);
-    }
+        $perPage = $request->get('per_page', 5);
+        $search = $request->get('search');
+        $status = $request->get('status');
+        $date = $request->get('date'); // 👈 NEW
 
+        $query = Booking::query();
+
+        // 🔍 SEARCH
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%")
+                ->orWhere('address', 'like', "%$search%")
+                ->orWhere('cabin', 'like', "%$search%");
+            });
+        }
+
+        // 💰 STATUS FILTER
+        if ($status === 'paid') {
+            $query->whereColumn('paid', '>=', 'amount');
+        } elseif ($status === 'unpaid') {
+            $query->whereColumn('paid', '<', 'amount');
+        }
+
+        // 📅 DATE FILTER (🔥 THIS IS THE KEY)
+        if ($date) {
+            $query->whereDate('date', $date);
+        }
+
+        $bookings = $query->latest()->paginate($perPage);
+
+        return response()->json($bookings);
+    }
     // STORE booking
     public function store(Request $request)
     {

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 class Booking extends Model
 {
     use HasFactory;
@@ -12,11 +13,20 @@ class Booking extends Model
         'name',
         'address',
         'cabin',
-        'date',
-        'time',
+        'start_datetime', // 🔥 NEW
+        'end_datetime',   // 🔥 NEW
         'guests',
         'videoke',
         'amount',
         'paid',
+    ];
+
+    // 🔥 OPTIONAL (RECOMMENDED)
+    protected $casts = [
+        'start_datetime' => 'datetime',
+        'end_datetime' => 'datetime',
+        'videoke' => 'boolean',
+        'amount' => 'decimal:2',
+        'paid' => 'decimal:2',
     ];
 }

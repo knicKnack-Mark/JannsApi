@@ -35,11 +35,15 @@ class BookingController extends Controller
             $query->whereColumn('paid', '<', 'amount');
         }
 
-        // 📅 DATE FILTER (🔥 FIXED FOR OVERNIGHT)
+        // 📅 DATE FILTER (OVERNIGHT SAFE)
         if ($date) {
             $query->where(function ($q) use ($date) {
-                $q->whereDate('start_datetime', '<=', $date)
-                  ->whereDate('end_datetime', '>=', $date);
+                $q->whereDate('start_datetime', $date)
+                  ->orWhereDate('end_datetime', $date)
+                  ->orWhere(function ($q2) use ($date) {
+                      $q2->where('start_datetime', '<=', $date . ' 23:59:59')
+                         ->where('end_datetime', '>=', $date . ' 00:00:00');
+                  });
             });
         }
 
@@ -48,7 +52,7 @@ class BookingController extends Controller
         );
     }
 
-    // ✅ STORE BOOKING (🔥 UPDATED)
+    // ✅ STORE BOOKING (🔥 WITH OVERLAP PREVENTION)
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -66,9 +70,27 @@ class BookingController extends Controller
         $start = Carbon::parse($validated['start_datetime']);
         $end = Carbon::parse($validated['end_datetime']);
 
-        // 🔥 HANDLE OVERNIGHT (IMPORTANT)
+        // 🔥 HANDLE OVERNIGHT
         if ($end <= $start) {
             $end->addDay();
+        }
+
+        // 🚫 OVERLAP CHECK
+        $conflict = Booking::where('cabin', $validated['cabin'])
+            ->where(function ($q) use ($start, $end) {
+                $q->whereBetween('start_datetime', [$start, $end])
+                  ->orWhereBetween('end_datetime', [$start, $end])
+                  ->orWhere(function ($q2) use ($start, $end) {
+                      $q2->where('start_datetime', '<=', $start)
+                         ->where('end_datetime', '>=', $end);
+                  });
+            })
+            ->exists();
+
+        if ($conflict) {
+            return response()->json([
+                'message' => 'Booking conflict: this cabin is already reserved for that time.'
+            ], 422);
         }
 
         $booking = Booking::create([
@@ -84,7 +106,7 @@ class BookingController extends Controller
         ], 201);
     }
 
-    // ✅ UPDATE BOOKING (🔥 UPDATED)
+    // ✅ UPDATE BOOKING (🔥 WITH OVERLAP PREVENTION)
     public function update(Request $request, $id)
     {
         $booking = Booking::findOrFail($id);
@@ -99,6 +121,25 @@ class BookingController extends Controller
                 $end->addDay();
             }
 
+            // 🚫 OVERLAP CHECK (exclude self)
+            $conflict = Booking::where('cabin', $booking->cabin)
+                ->where('id', '!=', $id)
+                ->where(function ($q) use ($start, $end) {
+                    $q->whereBetween('start_datetime', [$start, $end])
+                      ->orWhereBetween('end_datetime', [$start, $end])
+                      ->orWhere(function ($q2) use ($start, $end) {
+                          $q2->where('start_datetime', '<=', $start)
+                             ->where('end_datetime', '>=', $end);
+                      });
+                })
+                ->exists();
+
+            if ($conflict) {
+                return response()->json([
+                    'message' => 'Booking conflict detected'
+                ], 422);
+            }
+
             $data['start_datetime'] = $start;
             $data['end_datetime'] = $end;
         }
@@ -111,7 +152,7 @@ class BookingController extends Controller
         ]);
     }
 
-    // ✅ DELETE BOOKING
+    // ✅ DELETE
     public function destroy($id)
     {
         Booking::findOrFail($id)->delete();
@@ -121,7 +162,7 @@ class BookingController extends Controller
         ]);
     }
 
-    // ✅ ADD PAYMENT (UNCHANGED)
+    // ✅ ADD PAYMENT
     public function addPayment(Request $request, $id)
     {
         $booking = Booking::findOrFail($id);
@@ -152,4 +193,4 @@ class BookingController extends Controller
             'data' => $booking
         ]);
     }
-}
+}   

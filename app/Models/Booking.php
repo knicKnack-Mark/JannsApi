@@ -19,6 +19,7 @@ class Booking extends Model
         'videoke',
         'amount',
         'paid',
+        'status',
     ];
 
     // 🔥 OPTIONAL (RECOMMENDED)

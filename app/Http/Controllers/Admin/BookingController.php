@@ -12,7 +12,7 @@ class BookingController extends Controller
     // ✅ GET BOOKINGS (WITH OVERNIGHT SUPPORT)
     public function index(Request $request)
     {
-        $perPage = $request->get('per_page', 5);
+        $perPage = $request->get('per_page', 1000);
         $search = $request->get('search');
         $status = $request->get('status');
         $date = $request->get('date');
@@ -65,6 +65,7 @@ class BookingController extends Controller
             'videoke' => 'required|boolean',
             'amount' => 'required|numeric',
             'paid' => 'nullable|numeric',
+            'status' => 'nullable|string',
         ]);
 
         $start = Carbon::parse($validated['start_datetime']);
@@ -190,6 +191,19 @@ class BookingController extends Controller
 
         return response()->json([
             'message' => 'Payment added',
+            'data' => $booking
+        ]);
+    }
+
+    public function cancel($id)
+    {
+        $booking = Booking::findOrFail($id);
+
+        $booking->status = 'cancelled';
+        $booking->save();
+
+        return response()->json([
+            'message' => 'Booking cancelled',
             'data' => $booking
         ]);
     }

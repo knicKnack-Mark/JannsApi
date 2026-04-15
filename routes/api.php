@@ -20,3 +20,4 @@ Route::prefix('bookings')->group(function () {
 
     Route::post('/{id}/payment', [BookingController::class, 'addPayment']);
 });
+Route::post('/bookings/{id}/cancel', [BookingController::class, 'cancel']);

@@ -6,18 +6,23 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up()
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
     {
         Schema::table('bookings', function (Blueprint $table) {
-            $table->dateTime('start_datetime')->nullable();
-            $table->dateTime('end_datetime')->nullable();
+            //
         });
     }
 
-    public function down()
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
     {
         Schema::table('bookings', function (Blueprint $table) {
-            $table->dropColumn(['start_datetime', 'end_datetime']);
+            //
         });
     }
 };

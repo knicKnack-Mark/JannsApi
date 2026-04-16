@@ -5,6 +5,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Admin\DashboardController; 
 use App\Http\Controllers\Admin\BookingController;
+use App\Http\Controllers\Api\RoomController;
+
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -21,3 +23,4 @@ Route::prefix('bookings')->group(function () {
     Route::post('/{id}/payment', [BookingController::class, 'addPayment']);
 });
 Route::post('/bookings/{id}/cancel', [BookingController::class, 'cancel']);
+Route::apiResource('rooms', RoomController::class);

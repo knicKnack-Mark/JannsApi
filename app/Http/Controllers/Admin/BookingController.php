@@ -22,6 +22,7 @@ class BookingController extends Controller
         // 🔍 SEARCH
         if ($search) {
             $query->where(function ($q) use ($search) {
+
                 $q->where('name', 'like', "%$search%")
                   ->orWhere('address', 'like', "%$search%")
                   ->orWhere('cabin', 'like', "%$search%");
@@ -30,19 +31,50 @@ class BookingController extends Controller
 
         // 💰 PAYMENT STATUS FILTER
         if ($status === 'paid') {
-            $query->whereColumn('paid', '>=', 'amount');
+
+            $query->whereColumn(
+                'paid',
+                '>=',
+                'amount'
+            );
+
         } elseif ($status === 'unpaid') {
-            $query->whereColumn('paid', '<', 'amount');
+
+            $query->whereColumn(
+                'paid',
+                '<',
+                'amount'
+            );
         }
 
         // 📅 DATE FILTER
         if ($date) {
+
             $query->where(function ($q) use ($date) {
-                $q->whereDate('start_datetime', $date)
-                  ->orWhereDate('end_datetime', $date)
+
+                $q->whereDate(
+                        'start_datetime',
+                        $date
+                    )
+
+                  ->orWhereDate(
+                        'end_datetime',
+                        $date
+                    )
+
                   ->orWhere(function ($q2) use ($date) {
-                      $q2->where('start_datetime', '<=', $date . ' 23:59:59')
-                         ->where('end_datetime', '>=', $date . ' 00:00:00');
+
+                      $q2->where(
+                            'start_datetime',
+                            '<=',
+                            $date . ' 23:59:59'
+                        )
+
+                        ->where(
+                            'end_datetime',
+                            '>=',
+                            $date . ' 00:00:00'
+                        );
                   });
             });
         }
@@ -56,12 +88,15 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+
             'name' => 'required|string',
+
             'address' => 'required|string',
 
             'cabin' => 'required|string',
 
             'start_datetime' => 'required|date',
+
             'end_datetime' => 'required|date',
 
             'guests' => 'required|integer|min:1',
@@ -69,12 +104,15 @@ class BookingController extends Controller
             // ✅ EXTRA PAX
             'max_pax' => 'required|integer|min:1',
 
-            'extra_pax_rate' => 'nullable|numeric|min:0',
+            'extra_pax_rate' =>
+                'nullable|numeric|min:0',
 
-            'extra_pax_discount' => 'nullable|numeric|min:0',
+            'extra_pax_discount' =>
+                'nullable|numeric|min:0',
 
             // ✅ BASE PRICE
-            'base_amount' => 'required|numeric|min:0',
+            'base_amount' =>
+                'required|numeric|min:0',
 
             'videoke' => 'required|boolean',
 
@@ -101,6 +139,7 @@ class BookingController extends Controller
                 'cabin',
                 $validated['cabin']
             )
+
             ->where(function ($q) use ($start, $end) {
 
                 $q->whereBetween(
@@ -113,7 +152,8 @@ class BookingController extends Controller
                         [$start, $end]
                     )
 
-                  ->orWhere(function ($q2) use ($start, $end) {
+                  ->orWhere(function ($q2)
+                        use ($start, $end) {
 
                       $q2->where(
                             'start_datetime',
@@ -128,23 +168,24 @@ class BookingController extends Controller
                         );
                   });
             })
+
             ->exists();
 
         if ($conflict) {
+
             return response()->json([
                 'message' =>
                     'Booking conflict: this cabin is already reserved for that time.'
             ], 422);
         }
 
-        // ✅ COMPUTE EXTRA PAX
+        // ✅ EXTRA PAX COMPUTATION
         $extraPax = max(
             0,
             $validated['guests']
             - $validated['max_pax']
         );
 
-        // default = 100
         $extraPaxRate =
             $validated['extra_pax_rate']
             ?? 100;
@@ -153,11 +194,9 @@ class BookingController extends Controller
             $validated['extra_pax_discount']
             ?? 0;
 
-        // subtotal
         $extraPaxSubtotal =
             $extraPax * $extraPaxRate;
 
-        // final extra fee
         $extraPaxTotal = max(
             0,
             $extraPaxSubtotal
@@ -169,49 +208,98 @@ class BookingController extends Controller
             $validated['base_amount']
             + $extraPaxTotal;
 
+        // ✅ PAYMENT STATUS
+        $status = 'unpaid';
+
+        if (
+            ($validated['paid'] ?? 0)
+            >= $totalAmount
+        ) {
+
+            $status = 'paid';
+
+        } elseif (
+            ($validated['paid'] ?? 0) > 0
+        ) {
+
+            $status = 'partial';
+        }
+
+        // ✅ REFERENCE NUMBER
+        $referenceNo =
+            'BK-'
+            . now()->format('Ymd')
+            . '-'
+            . rand(1000, 9999);
+
         $booking = Booking::create([
 
-            'name' => $validated['name'],
-            'address' => $validated['address'],
-            'cabin' => $validated['cabin'],
+            'name' =>
+                $validated['name'],
 
-            'start_datetime' => $start,
-            'end_datetime' => $end,
+            'address' =>
+                $validated['address'],
 
-            'guests' => $validated['guests'],
+            'cabin' =>
+                $validated['cabin'],
 
-            // ✅ EXTRA PAX DATA
-            'max_pax' => $validated['max_pax'],
+            'start_datetime' =>
+                $start,
 
-            'extra_pax' => $extraPax,
+            'end_datetime' =>
+                $end,
 
-            'extra_pax_rate' => $extraPaxRate,
+            'guests' =>
+                $validated['guests'],
 
-            'extra_pax_discount' => $extraPaxDiscount,
+            // ✅ EXTRA PAX
+            'max_pax' =>
+                $validated['max_pax'],
 
-            'extra_pax_total' => $extraPaxTotal,
+            'extra_pax' =>
+                $extraPax,
+
+            'extra_pax_rate' =>
+                $extraPaxRate,
+
+            'extra_pax_discount' =>
+                $extraPaxDiscount,
+
+            'extra_pax_total' =>
+                $extraPaxTotal,
 
             // ✅ TOTAL
-            'amount' => $totalAmount,
+            'amount' =>
+                $totalAmount,
 
-            'videoke' => $validated['videoke'],
+            'videoke' =>
+                $validated['videoke'],
 
-            'paid' => $validated['paid'] ?? 0,
+            'paid' =>
+                $validated['paid'] ?? 0,
 
             'status' =>
-                $validated['status']
-                ?? 'confirmed',
+                $status,
+
+            // ✅ REFERENCE
+            'reference_no' =>
+                $referenceNo,
         ]);
 
         return response()->json([
-            'message' => 'Booking created successfully',
+            'message' =>
+                'Booking created successfully',
+
             'data' => $booking
         ], 201);
     }
 
     // ✅ UPDATE BOOKING
-    public function update(Request $request, $id)
-    {
+    public function update(
+        Request $request,
+        $id
+    ) {
+
         $booking = Booking::findOrFail($id);
 
         $data = $request->all();
@@ -239,9 +327,11 @@ class BookingController extends Controller
                     'cabin',
                     $booking->cabin
                 )
+
                 ->where('id', '!=', $id)
 
-                ->where(function ($q) use ($start, $end) {
+                ->where(function ($q)
+                    use ($start, $end) {
 
                     $q->whereBetween(
                             'start_datetime',
@@ -253,7 +343,8 @@ class BookingController extends Controller
                             [$start, $end]
                         )
 
-                      ->orWhere(function ($q2) use ($start, $end) {
+                      ->orWhere(function ($q2)
+                            use ($start, $end) {
 
                           $q2->where(
                                 'start_datetime',
@@ -268,9 +359,11 @@ class BookingController extends Controller
                             );
                       });
                 })
+
                 ->exists();
 
             if ($conflict) {
+
                 return response()->json([
                     'message' =>
                         'Booking conflict detected'
@@ -278,6 +371,7 @@ class BookingController extends Controller
             }
 
             $data['start_datetime'] = $start;
+
             $data['end_datetime'] = $end;
         }
 
@@ -316,7 +410,8 @@ class BookingController extends Controller
                     - $booking->extra_pax_total
                 );
 
-            $data['extra_pax'] = $extraPax;
+            $data['extra_pax'] =
+                $extraPax;
 
             $data['extra_pax_rate'] =
                 $extraPaxRate;
@@ -332,10 +427,34 @@ class BookingController extends Controller
                 + $extraPaxTotal;
         }
 
+        // ✅ AUTO STATUS
+        $paid =
+            $data['paid']
+            ?? $booking->paid;
+
+        $amount =
+            $data['amount']
+            ?? $booking->amount;
+
+        if ($paid >= $amount) {
+
+            $data['status'] = 'paid';
+
+        } elseif ($paid > 0) {
+
+            $data['status'] = 'partial';
+
+        } else {
+
+            $data['status'] = 'unpaid';
+        }
+
         $booking->update($data);
 
         return response()->json([
-            'message' => 'Booking updated',
+            'message' =>
+                'Booking updated',
+
             'data' => $booking
         ]);
     }
@@ -346,31 +465,32 @@ class BookingController extends Controller
         Booking::findOrFail($id)->delete();
 
         return response()->json([
-            'message' => 'Booking deleted'
+            'message' =>
+                'Booking deleted'
         ]);
     }
 
     // ✅ ADD PAYMENT
-    public function addPayment(Request $request, $id)
-    {
+    public function addPayment(
+        Request $request,
+        $id
+    ) {
+
         $booking = Booking::findOrFail($id);
 
-        if ($booking->paid >= $booking->amount) {
-            return response()->json([
-                'message' =>
-                    'Booking is already fully paid'
-            ], 400);
-        }
-
         $request->validate([
-            'amount' => 'required|numeric|min:1'
+            'amount' =>
+                'required|numeric|min:1'
         ]);
 
         $newPaid =
             $booking->paid
             + $request->amount;
 
-        if ($newPaid > $booking->amount) {
+        if (
+            $newPaid > $booking->amount
+        ) {
+
             return response()->json([
                 'message' =>
                     'Payment exceeds remaining balance'
@@ -379,15 +499,30 @@ class BookingController extends Controller
 
         $booking->paid = $newPaid;
 
+        // ✅ AUTO STATUS
+        if (
+            $booking->paid
+            >= $booking->amount
+        ) {
+
+            $booking->status = 'paid';
+
+        } else {
+
+            $booking->status = 'partial';
+        }
+
         $booking->save();
 
         return response()->json([
-            'message' => 'Payment added',
+            'message' =>
+                'Payment added',
+
             'data' => $booking
         ]);
     }
 
-    // ✅ CANCEL
+    // ✅ CANCEL BOOKING
     public function cancel($id)
     {
         $booking = Booking::findOrFail($id);
@@ -397,7 +532,9 @@ class BookingController extends Controller
         $booking->save();
 
         return response()->json([
-            'message' => 'Booking cancelled',
+            'message' =>
+                'Booking cancelled',
+
             'data' => $booking
         ]);
     }

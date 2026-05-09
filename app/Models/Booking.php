@@ -30,4 +30,15 @@ class Booking extends Model
         'amount' => 'decimal:2',
         'paid' => 'decimal:2',
     ];
+
+    // public function todayEntries()
+    // {
+    //     return $this->hasMany(\App\Models\TodayEntry::class);
+    // }
+
+    public function attendance()
+    {
+        return $this->hasMany(\App\Models\Attendance::class);
+    }
 }
+

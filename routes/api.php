@@ -6,7 +6,8 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Admin\DashboardController; 
 use App\Http\Controllers\Admin\BookingController;
 use App\Http\Controllers\Api\RoomController;
-
+use App\Http\Controllers\Admin\AttendanceController;
+use App\Http\Controllers\ScheduleController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -24,3 +25,11 @@ Route::prefix('bookings')->group(function () {
 });
 Route::post('/bookings/{id}/cancel', [BookingController::class, 'cancel']);
 Route::apiResource('rooms', RoomController::class);
+
+Route::prefix('attendance')->group(function () {
+    Route::get('/', [AttendanceController::class, 'index']);
+    Route::post('/', [AttendanceController::class, 'store']);
+    Route::delete('/{id}', [AttendanceController::class, 'destroy']);
+});
+
+Route::apiResource('schedules', ScheduleController::class);

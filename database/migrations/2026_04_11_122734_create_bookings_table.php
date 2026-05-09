@@ -15,17 +15,28 @@ return new class extends Migration
             $table->string('address');
             $table->string('cabin');
 
-            // 🔥 NEW (replace date & time)
             $table->dateTime('start_datetime');
             $table->dateTime('end_datetime');
 
             $table->integer('guests');
+
+            // NEW
+            $table->integer('max_pax')->default(0);
+
+            $table->integer('extra_pax')->default(0);
+
+            $table->decimal('extra_pax_rate', 10, 2)->default(100);
+
+            $table->decimal('extra_pax_discount', 10, 2)->default(0);
+
+            $table->decimal('extra_pax_total', 10, 2)->default(0);
+
             $table->boolean('videoke')->default(false);
 
             $table->decimal('amount', 10, 2);
+
             $table->decimal('paid', 10, 2)->default(0);
 
-            // 🔥 NEW STATUS
             $table->string('status')->default('confirmed');
 
             $table->timestamps();

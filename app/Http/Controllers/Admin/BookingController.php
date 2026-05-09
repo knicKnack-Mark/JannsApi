@@ -9,7 +9,7 @@ use Carbon\Carbon;
 
 class BookingController extends Controller
 {
-    // ✅ GET BOOKINGS (WITH OVERNIGHT SUPPORT)
+    // ✅ GET BOOKINGS
     public function index(Request $request)
     {
         $perPage = $request->get('per_page', 1000);
@@ -28,14 +28,14 @@ class BookingController extends Controller
             });
         }
 
-        // 💰 STATUS FILTER
+        // 💰 PAYMENT STATUS FILTER
         if ($status === 'paid') {
             $query->whereColumn('paid', '>=', 'amount');
         } elseif ($status === 'unpaid') {
             $query->whereColumn('paid', '<', 'amount');
         }
 
-        // 📅 DATE FILTER (OVERNIGHT SAFE)
+        // 📅 DATE FILTER
         if ($date) {
             $query->where(function ($q) use ($date) {
                 $q->whereDate('start_datetime', $date)
@@ -52,24 +52,44 @@ class BookingController extends Controller
         );
     }
 
-    // ✅ STORE BOOKING (🔥 WITH OVERLAP PREVENTION)
+    // ✅ STORE BOOKING
     public function store(Request $request)
     {
         $validated = $request->validate([
             'name' => 'required|string',
             'address' => 'required|string',
+
             'cabin' => 'required|string',
+
             'start_datetime' => 'required|date',
             'end_datetime' => 'required|date',
-            'guests' => 'required|integer',
+
+            'guests' => 'required|integer|min:1',
+
+            // ✅ EXTRA PAX
+            'max_pax' => 'required|integer|min:1',
+
+            'extra_pax_rate' => 'nullable|numeric|min:0',
+
+            'extra_pax_discount' => 'nullable|numeric|min:0',
+
+            // ✅ BASE PRICE
+            'base_amount' => 'required|numeric|min:0',
+
             'videoke' => 'required|boolean',
-            'amount' => 'required|numeric',
-            'paid' => 'nullable|numeric',
+
+            'paid' => 'nullable|numeric|min:0',
+
             'status' => 'nullable|string',
         ]);
 
-        $start = Carbon::parse($validated['start_datetime']);
-        $end = Carbon::parse($validated['end_datetime']);
+        $start = Carbon::parse(
+            $validated['start_datetime']
+        );
+
+        $end = Carbon::parse(
+            $validated['end_datetime']
+        );
 
         // 🔥 HANDLE OVERNIGHT
         if ($end <= $start) {
@@ -77,28 +97,110 @@ class BookingController extends Controller
         }
 
         // 🚫 OVERLAP CHECK
-        $conflict = Booking::where('cabin', $validated['cabin'])
+        $conflict = Booking::where(
+                'cabin',
+                $validated['cabin']
+            )
             ->where(function ($q) use ($start, $end) {
-                $q->whereBetween('start_datetime', [$start, $end])
-                  ->orWhereBetween('end_datetime', [$start, $end])
+
+                $q->whereBetween(
+                        'start_datetime',
+                        [$start, $end]
+                    )
+
+                  ->orWhereBetween(
+                        'end_datetime',
+                        [$start, $end]
+                    )
+
                   ->orWhere(function ($q2) use ($start, $end) {
-                      $q2->where('start_datetime', '<=', $start)
-                         ->where('end_datetime', '>=', $end);
+
+                      $q2->where(
+                            'start_datetime',
+                            '<=',
+                            $start
+                        )
+
+                        ->where(
+                            'end_datetime',
+                            '>=',
+                            $end
+                        );
                   });
             })
             ->exists();
 
         if ($conflict) {
             return response()->json([
-                'message' => 'Booking conflict: this cabin is already reserved for that time.'
+                'message' =>
+                    'Booking conflict: this cabin is already reserved for that time.'
             ], 422);
         }
 
+        // ✅ COMPUTE EXTRA PAX
+        $extraPax = max(
+            0,
+            $validated['guests']
+            - $validated['max_pax']
+        );
+
+        // default = 100
+        $extraPaxRate =
+            $validated['extra_pax_rate']
+            ?? 100;
+
+        $extraPaxDiscount =
+            $validated['extra_pax_discount']
+            ?? 0;
+
+        // subtotal
+        $extraPaxSubtotal =
+            $extraPax * $extraPaxRate;
+
+        // final extra fee
+        $extraPaxTotal = max(
+            0,
+            $extraPaxSubtotal
+            - $extraPaxDiscount
+        );
+
+        // ✅ FINAL TOTAL
+        $totalAmount =
+            $validated['base_amount']
+            + $extraPaxTotal;
+
         $booking = Booking::create([
-            ...$validated,
+
+            'name' => $validated['name'],
+            'address' => $validated['address'],
+            'cabin' => $validated['cabin'],
+
             'start_datetime' => $start,
             'end_datetime' => $end,
-            'paid' => $validated['paid'] ?? 0
+
+            'guests' => $validated['guests'],
+
+            // ✅ EXTRA PAX DATA
+            'max_pax' => $validated['max_pax'],
+
+            'extra_pax' => $extraPax,
+
+            'extra_pax_rate' => $extraPaxRate,
+
+            'extra_pax_discount' => $extraPaxDiscount,
+
+            'extra_pax_total' => $extraPaxTotal,
+
+            // ✅ TOTAL
+            'amount' => $totalAmount,
+
+            'videoke' => $validated['videoke'],
+
+            'paid' => $validated['paid'] ?? 0,
+
+            'status' =>
+                $validated['status']
+                ?? 'confirmed',
         ]);
 
         return response()->json([
@@ -107,42 +209,127 @@ class BookingController extends Controller
         ], 201);
     }
 
-    // ✅ UPDATE BOOKING (🔥 WITH OVERLAP PREVENTION)
+    // ✅ UPDATE BOOKING
     public function update(Request $request, $id)
     {
         $booking = Booking::findOrFail($id);
 
         $data = $request->all();
 
-        if (isset($data['start_datetime']) && isset($data['end_datetime'])) {
-            $start = Carbon::parse($data['start_datetime']);
-            $end = Carbon::parse($data['end_datetime']);
+        // 🔥 HANDLE DATETIME
+        if (
+            isset($data['start_datetime']) &&
+            isset($data['end_datetime'])
+        ) {
+
+            $start = Carbon::parse(
+                $data['start_datetime']
+            );
+
+            $end = Carbon::parse(
+                $data['end_datetime']
+            );
 
             if ($end <= $start) {
                 $end->addDay();
             }
 
-            // 🚫 OVERLAP CHECK (exclude self)
-            $conflict = Booking::where('cabin', $booking->cabin)
+            // 🚫 OVERLAP CHECK
+            $conflict = Booking::where(
+                    'cabin',
+                    $booking->cabin
+                )
                 ->where('id', '!=', $id)
+
                 ->where(function ($q) use ($start, $end) {
-                    $q->whereBetween('start_datetime', [$start, $end])
-                      ->orWhereBetween('end_datetime', [$start, $end])
+
+                    $q->whereBetween(
+                            'start_datetime',
+                            [$start, $end]
+                        )
+
+                      ->orWhereBetween(
+                            'end_datetime',
+                            [$start, $end]
+                        )
+
                       ->orWhere(function ($q2) use ($start, $end) {
-                          $q2->where('start_datetime', '<=', $start)
-                             ->where('end_datetime', '>=', $end);
+
+                          $q2->where(
+                                'start_datetime',
+                                '<=',
+                                $start
+                            )
+
+                            ->where(
+                                'end_datetime',
+                                '>=',
+                                $end
+                            );
                       });
                 })
                 ->exists();
 
             if ($conflict) {
                 return response()->json([
-                    'message' => 'Booking conflict detected'
+                    'message' =>
+                        'Booking conflict detected'
                 ], 422);
             }
 
             $data['start_datetime'] = $start;
             $data['end_datetime'] = $end;
+        }
+
+        // ✅ RECALCULATE EXTRA PAX
+        if (
+            isset($data['guests']) &&
+            isset($data['max_pax'])
+        ) {
+
+            $extraPax = max(
+                0,
+                $data['guests']
+                - $data['max_pax']
+            );
+
+            $extraPaxRate =
+                $data['extra_pax_rate']
+                ?? $booking->extra_pax_rate
+                ?? 100;
+
+            $extraPaxDiscount =
+                $data['extra_pax_discount']
+                ?? $booking->extra_pax_discount
+                ?? 0;
+
+            $extraPaxTotal = max(
+                0,
+                ($extraPax * $extraPaxRate)
+                - $extraPaxDiscount
+            );
+
+            $baseAmount =
+                $data['base_amount']
+                ?? (
+                    $booking->amount
+                    - $booking->extra_pax_total
+                );
+
+            $data['extra_pax'] = $extraPax;
+
+            $data['extra_pax_rate'] =
+                $extraPaxRate;
+
+            $data['extra_pax_discount'] =
+                $extraPaxDiscount;
+
+            $data['extra_pax_total'] =
+                $extraPaxTotal;
+
+            $data['amount'] =
+                $baseAmount
+                + $extraPaxTotal;
         }
 
         $booking->update($data);
@@ -170,7 +357,8 @@ class BookingController extends Controller
 
         if ($booking->paid >= $booking->amount) {
             return response()->json([
-                'message' => 'Booking is already fully paid'
+                'message' =>
+                    'Booking is already fully paid'
             ], 400);
         }
 
@@ -178,15 +366,19 @@ class BookingController extends Controller
             'amount' => 'required|numeric|min:1'
         ]);
 
-        $newPaid = $booking->paid + $request->amount;
+        $newPaid =
+            $booking->paid
+            + $request->amount;
 
         if ($newPaid > $booking->amount) {
             return response()->json([
-                'message' => 'Payment exceeds remaining balance'
+                'message' =>
+                    'Payment exceeds remaining balance'
             ], 400);
         }
 
         $booking->paid = $newPaid;
+
         $booking->save();
 
         return response()->json([
@@ -195,11 +387,13 @@ class BookingController extends Controller
         ]);
     }
 
+    // ✅ CANCEL
     public function cancel($id)
     {
         $booking = Booking::findOrFail($id);
 
         $booking->status = 'cancelled';
+
         $booking->save();
 
         return response()->json([
@@ -207,4 +401,4 @@ class BookingController extends Controller
             'data' => $booking
         ]);
     }
-}   
+}

@@ -13,32 +13,42 @@ class Booking extends Model
         'name',
         'address',
         'cabin',
-        'start_datetime', // 🔥 NEW
-        'end_datetime',   // 🔥 NEW
+        'start_datetime',
+        'end_datetime',
         'guests',
+
+        // NEW
+        'max_pax',
+        'extra_pax',
+        'extra_pax_rate',
+        'extra_pax_discount',
+        'extra_pax_total',
+
         'videoke',
         'amount',
         'paid',
         'status',
     ];
 
-    // 🔥 OPTIONAL (RECOMMENDED)
     protected $casts = [
-        'start_datetime' => 'datetime',
-        'end_datetime' => 'datetime',
+        'start_datetime' => 'datetime:Y-m-d H:i:s',
+        'end_datetime' => 'datetime:Y-m-d H:i:s',
+
         'videoke' => 'boolean',
+
         'amount' => 'decimal:2',
         'paid' => 'decimal:2',
-    ];
 
-    // public function todayEntries()
-    // {
-    //     return $this->hasMany(\App\Models\TodayEntry::class);
-    // }
+        // NEW
+        'extra_pax_rate' => 'decimal:2',
+        'extra_pax_discount' => 'decimal:2',
+        'extra_pax_total' => 'decimal:2',
+    ];
 
     public function attendance()
     {
-        return $this->hasMany(\App\Models\Attendance::class);
+        return $this->hasMany(
+            \App\Models\Attendance::class
+        );
     }
 }
-

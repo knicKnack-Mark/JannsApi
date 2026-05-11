@@ -140,6 +140,9 @@ class BookingController extends Controller
                 $validated['cabin']
             )
 
+            // ✅ IGNORE CANCELLED BOOKINGS
+            ->where('status', '!=', 'cancelled')
+
             ->where(function ($q) use ($start, $end) {
 
                 $q->whereBetween(
@@ -328,7 +331,11 @@ class BookingController extends Controller
                     $booking->cabin
                 )
 
+                // ✅ IGNORE CURRENT BOOKING
                 ->where('id', '!=', $id)
+
+                // ✅ IGNORE CANCELLED BOOKINGS
+                ->where('status', '!=', 'cancelled')
 
                 ->where(function ($q)
                     use ($start, $end) {

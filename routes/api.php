@@ -9,7 +9,7 @@ use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Admin\AttendanceController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\Api\StaffController;
-
+use App\Http\Controllers\Api\PayrollController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -36,3 +36,9 @@ Route::prefix('attendance')->group(function () {
 Route::apiResource('rooms', RoomController::class);
 Route::apiResource('schedules', ScheduleController::class);
 Route::apiResource('staff', StaffController::class);
+
+Route::prefix('payrolls')->group(function () {
+    Route::get('/', [PayrollController::class, 'index']);
+    Route::post('/generate', [PayrollController::class, 'generate']);
+    Route::patch('/{payroll}/paid', [PayrollController::class, 'markAsPaid']);
+});

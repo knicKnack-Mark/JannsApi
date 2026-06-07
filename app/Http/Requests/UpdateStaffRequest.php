@@ -22,7 +22,7 @@ class UpdateStaffRequest extends FormRequest
             'daily_rate' => 'nullable|numeric|min:0',
             'status' => 'sometimes|required|in:Active,Inactive',
             'attendance' => 'nullable|in:Present,Absent,Not Timed In',
-            'avatar' => 'nullable|string|max:255',
+            'avatar' => 'nullable|image|mimes:jpeg,jpg,png|max:4096',
         ];
     }
 }

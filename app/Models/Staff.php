@@ -17,4 +17,9 @@ class Staff extends Model
         'attendance',
         'avatar',
     ];
+
+        public function payrolls()
+    {
+        return $this->hasMany(Payroll::class);
+    }
 }

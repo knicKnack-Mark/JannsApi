@@ -18,8 +18,12 @@ class Staff extends Model
         'avatar',
     ];
 
-        public function payrolls()
-    {
-        return $this->hasMany(Payroll::class);
-    }
+    public function payrolls()
+        {
+            return $this->hasMany(Payroll::class);
+        }
+    public function attendances()
+        {
+            return $this->hasMany(StaffAttendance::class);
+        }
 }

@@ -10,6 +10,8 @@ use App\Http\Controllers\Admin\AttendanceController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\PayrollController;
+use App\Http\Controllers\Api\StaffAttendanceController;
+
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -41,4 +43,12 @@ Route::prefix('payrolls')->group(function () {
     Route::get('/', [PayrollController::class, 'index']);
     Route::post('/generate', [PayrollController::class, 'generate']);
     Route::patch('/{payroll}/paid', [PayrollController::class, 'markAsPaid']);
+});
+
+Route::prefix('staff-attendance')->group(function () {
+    Route::get('/', [StaffAttendanceController::class, 'index']);
+    Route::patch('/{attendance}/time-in', [StaffAttendanceController::class, 'timeIn']);
+    Route::patch('/{attendance}/time-out', [StaffAttendanceController::class, 'timeOut']);
+    Route::patch('/{attendance}/absent', [StaffAttendanceController::class, 'markAbsent']);
+    Route::patch('/{attendance}/remarks', [StaffAttendanceController::class, 'updateRemarks']);
 });

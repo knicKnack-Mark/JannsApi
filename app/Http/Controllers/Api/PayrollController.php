@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Payroll;
 use App\Models\Staff;
+use App\Models\StaffAttendance;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class PayrollController extends Controller
@@ -33,25 +35,44 @@ class PayrollController extends Controller
         $month = $validated['payroll_month'];
         $workingDays = $validated['working_days'] ?? 26;
 
+        $startDate = Carbon::parse('first day of ' . $month)->toDateString();
+        $endDate = Carbon::parse('last day of ' . $month)->toDateString();
+
         $staffList = Staff::where('status', 'Active')->get();
 
         foreach ($staffList as $staff) {
-            $presentDays = $workingDays;
-            $absentDays = 0;
+            $presentDays = StaffAttendance::where('staff_id', $staff->id)
+                ->whereBetween('attendance_date', [$startDate, $endDate])
+                ->where('status', 'Present')
+                ->count();
+
+            $absentDays = StaffAttendance::where('staff_id', $staff->id)
+                ->whereBetween('attendance_date', [$startDate, $endDate])
+                ->where('status', 'Absent')
+                ->count();
+
+            if ($presentDays === 0 && $absentDays === 0) {
+                $presentDays = $workingDays;
+                $absentDays = 0;
+            }
 
             $salary = $staff->salary_type === 'Monthly'
                 ? (float) $staff->monthly_salary
                 : (float) $staff->daily_rate;
 
-            $grossSalary = $staff->salary_type === 'Monthly'
-                ? $salary
-                : $salary * $presentDays;
+            if ($staff->salary_type === 'Monthly') {
+                $dailyEquivalent = $workingDays > 0
+                    ? $salary / $workingDays
+                    : 0;
 
-            $deductions = $staff->salary_type === 'Monthly'
-                ? 0
-                : $salary * $absentDays;
+                $grossSalary = $salary;
+                $deductions = $dailyEquivalent * $absentDays;
+            } else {
+                $grossSalary = $salary * $presentDays;
+                $deductions = $salary * $absentDays;
+            }
 
-            $netSalary = $grossSalary - $deductions;
+            $netSalary = max($grossSalary - $deductions, 0);
 
             Payroll::updateOrCreate(
                 [

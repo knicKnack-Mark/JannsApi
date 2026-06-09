@@ -10,6 +10,9 @@ use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\PayrollController;
 use App\Http\Controllers\Api\StaffAttendanceController;
+use App\Http\Controllers\Api\SettingController;
+
+
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -50,4 +53,9 @@ Route::prefix('staff-attendance')->group(function () {
     Route::patch('/{attendance}/time-out', [StaffAttendanceController::class, 'timeOut']);
     Route::patch('/{attendance}/absent', [StaffAttendanceController::class, 'markAbsent']);
     Route::patch('/{attendance}/remarks', [StaffAttendanceController::class, 'updateRemarks']);
+});
+
+Route::prefix('settings')->group(function () {
+    Route::get('/', [SettingController::class, 'index']);
+    Route::put('/', [SettingController::class, 'update']);
 });

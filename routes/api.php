@@ -11,7 +11,7 @@ use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\PayrollController;
 use App\Http\Controllers\Api\StaffAttendanceController;
 use App\Http\Controllers\Api\SettingController;
-
+use Illuminate\Support\Facades\Artisan;
 
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -58,4 +58,10 @@ Route::prefix('staff-attendance')->group(function () {
 Route::prefix('settings')->group(function () {
     Route::get('/', [SettingController::class, 'index']);
     Route::put('/', [SettingController::class, 'update']);
+});
+
+Route::get('/run-migrations-now', function () {
+    Artisan::call('migrate', ['--force' => true]);
+
+    return response(nl2br(Artisan::output()));
 });

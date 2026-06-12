@@ -12,3 +12,6 @@ Route::get('/run-migrations-now', function () {
 Route::get('/', function () {
     return view('welcome');
 });
+Route::get('/test-render', function () {
+    return 'RENDER TEST WORKING';
+});

@@ -14,4 +14,4 @@ RUN chmod -R 775 storage bootstrap/cache
 
 ENV WEBROOT=/var/www/html/public
 
-CMD ["/start.sh"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]

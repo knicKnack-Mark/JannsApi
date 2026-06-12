@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Payroll;
 use App\Models\Staff;
 use App\Models\StaffAttendance;
 use Carbon\Carbon;
@@ -26,6 +27,12 @@ class DashboardController extends Controller
         $attendanceRate = $totalStaff > 0
             ? round(($presentToday / $totalStaff) * 100)
             : 0;
+
+        $salaryExpenses = Payroll::where('status', 'Paid')
+            ->sum('net_salary');
+
+        $payrollProcessed = Payroll::where('status', 'Paid')
+            ->sum('net_salary');
 
         return response()->json([
             'analytics' => [
@@ -52,7 +59,7 @@ class DashboardController extends Controller
                 ],
                 [
                     'title' => 'Salary Expenses',
-                    'value' => '₱0',
+                    'value' => '₱' . number_format($salaryExpenses, 0),
                     'icon' => 'solar:wallet-money-bold-duotone',
                     'color' => 'orange',
                     'description' => 'Monthly payroll',
@@ -102,7 +109,7 @@ class DashboardController extends Controller
             'quickStats' => [
                 [
                     'title' => 'Payroll Processed',
-                    'value' => '₱0',
+                    'value' => '₱' . number_format($payrollProcessed, 0),
                     'icon' => 'solar:dollar-bold-duotone',
                 ],
                 [
